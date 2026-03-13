@@ -4,14 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ISI Algo Engine v2 | Chart + Signals + Orders</title>
-<script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
-<script src="https://s3.tradingview.com/tv.js"></script>
+
 <script>
-// Fallback LC CDN
-if(typeof LightweightCharts==='undefined'){
-  var _s=document.createElement('script');
-  _s.src='https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js';
-  document.head.appendChild(_s);
+// Fallback CDN if jsdelivr fails
+
+if (!window.__lcLoaded) {
+  var s = document.createElement('script');
+  s.src = 'https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js';
+  document.head.appendChild(s);
 }
 </script>
 <style>
@@ -20,7 +20,7 @@ if(typeof LightweightCharts==='undefined'){
   --danger:#ff3b3b;--blue:#4a9eff;--purple:#9b59b6;--border:#1a1a1a;
 }
 *{box-sizing:border-box;margin:0;padding:0;}
-html,body{height:100%;margin:0;padding:0;}body{background:var(--bg);color:#e0e0e0;font-family:'Segoe UI',sans-serif;height:100vh;overflow:hidden;display:flex;flex-direction:column;}
+body{background:var(--bg);color:#e0e0e0;font-family:'Segoe UI',sans-serif;height:100vh;overflow:hidden;display:flex;flex-direction:column;}
 
 /* TOP BAR */
 .topbar{height:48px;background:#000;border-bottom:2px solid var(--gold);display:flex;align-items:center;padding:0 12px;gap:8px;flex-shrink:0;z-index:100;}
@@ -38,18 +38,18 @@ html,body{height:100%;margin:0;padding:0;}body{background:var(--bg);color:#e0e0e
 #liveClock{font-size:0.6rem;color:#333;font-family:monospace;white-space:nowrap;}
 
 /* WORKSPACE */
-.workspace{flex:1;display:flex;overflow:hidden;min-height:0;}
+.workspace{flex:1;display:flex;overflow:hidden;}
 
 /* CHART PANEL */
-.chart-panel{flex:1;display:flex;flex-direction:column;min-width:0;border-right:1px solid var(--border);overflow:hidden;}
+.chart-panel{flex:1;display:flex;flex-direction:column;min-width:0;border-right:1px solid var(--border);}
 .chart-toolbar{height:34px;background:#080808;border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 8px;gap:6px;flex-shrink:0;flex-wrap:nowrap;overflow:hidden;}
 .toolbar-btn{padding:3px 8px;background:#080808;border:1px solid #1a1a1a;color:#444;border-radius:3px;font-size:0.58rem;cursor:pointer;font-weight:bold;white-space:nowrap;}
 .toolbar-btn.on{opacity:1;}
 .toolbar-btn.off{opacity:0.4;}
-.chart-wrap{flex:1;position:relative;min-height:0;overflow:hidden;}
-#tvChart{position:absolute;inset:0;}
-.chart-overlay{position:absolute;top:8px;left:8px;pointer-events:none;z-index:10;display:flex;flex-direction:column;gap:3px;}
-.overlay-badge{background:rgba(0,0,0,0.8);border:1px solid #1a1a1a;border-radius:3px;padding:3px 7px;font-size:0.55rem;color:#555;font-family:monospace;}
+.chart-wrap{flex:1;position:relative;min-height:0;}
+#tvChart{width:100%;height:100%;}
+
+
 
 /* RIGHT PANEL */
 .right-panel{width:330px;flex-shrink:0;display:flex;flex-direction:column;overflow:hidden;}
@@ -208,7 +208,7 @@ html,body{height:100%;margin:0;padding:0;}body{background:var(--bg);color:#e0e0e
 .toolbar-divider{width:1px;height:18px;background:#1a1a1a;flex-shrink:0;margin:0 2px;}
 
 /* DRAWING CANVAS */
-#drawCanvas{position:absolute;top:0;left:0;width:100%;height:100%;z-index:20;cursor:crosshair;pointer-events:none;}
+#drawCanvas{position:absolute;top:0;left:0;width:100%;height:100%;z-index:5;cursor:crosshair;}
 #drawCanvas.tool-none{cursor:default;}
 #drawCanvas.tool-hline{cursor:row-resize;}
 #drawCanvas.tool-vline{cursor:col-resize;}
@@ -312,27 +312,87 @@ html,body{height:100%;margin:0;padding:0;}body{background:var(--bg);color:#e0e0e
       <button class="toolbar-btn" id="dtFib"    onclick="setDrawTool('fib')"      title="Fibonacci" style="color:#c5a059;">φ</button>
       <button class="toolbar-btn" id="dtText"   onclick="setDrawTool('text')"     title="Text Label" style="color:#888;">T</button>
       <button class="toolbar-btn" id="dtClear"  onclick="clearDrawings()"         title="Clear All Drawings" style="color:#ff3b3b;">🗑</button>
-      <div style="margin-left:auto;display:flex;align-items:center;gap:3px;flex-shrink:0;">
-        <button class="toolbar-btn on" id="btnLC" onclick="switchChart('lc')" title="LightweightCharts + ICT" style="border-color:#c5a059;color:#c5a059;font-size:0.58rem;">📊 ICT</button>
-        <button class="toolbar-btn" id="btnTV" onclick="switchChart('tv')" title="TradingView Professional" style="color:#2962ff;font-size:0.58rem;">📈 TV</button>
-        <select id="tvStyleSel" onchange="applyTVStyle(this.value)" style="display:none;background:#0a0a0a;border:1px solid #222;color:#888;padding:2px 5px;border-radius:3px;font-size:0.58rem;">
-          <option value="1">🕯 Candles</option><option value="8">HA</option><option value="3">Line</option><option value="2">Bars</option>
-        </select>
-        <button class="toolbar-btn" onclick="toggleFullscreen()" title="Fullscreen" style="color:#555;font-size:0.8rem;padding:2px 7px;">⛶</button>
-      </div>
+      <div style="margin-left:auto;font-size:0.45rem;color:#1a1a1a;white-space:nowrap;">ISI ALGO v6</div>
     </div>
-    <div class="chart-wrap">
-      <!-- LightweightCharts (ICT mode) -->
-      <div id="lcChart" style="position:absolute;inset:0;"></div>
-      <!-- TradingView widget (TV mode) -->
-      <div id="tvChartDiv" style="position:absolute;inset:0;display:none;"></div>
-      <canvas id="drawCanvas" class="tool-none"></canvas>
-      <div id="drawToolLabel"></div>
-      <div class="chart-overlay">
-        <div class="overlay-badge" id="symBadge">XAUUSD · M15</div>
-        <div class="overlay-badge" id="sessBadge" style="color:#333;">SESSION: —</div>
-        <div class="overlay-badge" id="ewBadge" style="display:none;color:#ff6bb5;">EW: —</div>
-        <div class="overlay-badge" id="bosBadge" style="display:none;color:#00ff88;">STRUCTURE: —</div>
+    <div class="chart-wrap" id="tvChartWrap" style="position:relative;">
+      <!-- TradingView Advanced Chart Widget - Official Embed - Login Supported -->
+      <div id="tv_chart_container" style="width:100%;height:100%;"></div>
+
+      <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+      <script type="text/javascript">
+        var _tvWidget = null;
+        var _tvCurrentSym = 'OANDA:XAUUSD';
+        var _tvCurrentTF  = '15';
+
+        function initTVWidget(sym, interval) {
+          _tvCurrentSym = sym || 'OANDA:XAUUSD';
+          _tvCurrentTF  = interval || '15';
+
+          // Remove old widget
+          if (_tvWidget) {
+            try { _tvWidget.remove(); } catch(e) {}
+            _tvWidget = null;
+          }
+
+          // Clear container
+          var c = document.getElementById('tv_chart_container');
+          if (c) c.innerHTML = '';
+
+          _tvWidget = new TradingView.widget({
+            autosize:           true,
+            symbol:             _tvCurrentSym,
+            interval:           _tvCurrentTF,
+            container_id:       "tv_chart_container",
+            datafeed:           null,
+            library_path:       null,
+            // ── Appearance ──
+            theme:              "dark",
+            style:              "1",
+            locale:             "en",
+            timezone:           "Asia/Kolkata",
+            toolbar_bg:         "#050505",
+            // ── Features ──
+            withdateranges:     true,
+            hide_top_toolbar:   false,
+            hide_legend:        false,
+            hide_side_toolbar:  false,
+            allow_symbol_change: false,
+            save_image:         false,
+            enable_publishing:  false,
+            // ── Login: user stays logged into TV account ──
+            // Widget uses TV's own auth — login once on TV, stays everywhere
+            studies_overrides:  {},
+            // ── Candle colors ──
+            overrides: {
+              "mainSeriesProperties.candleStyle.upColor":         "#00c805",
+              "mainSeriesProperties.candleStyle.downColor":       "#ff3b3b",
+              "mainSeriesProperties.candleStyle.borderUpColor":   "#00c805",
+              "mainSeriesProperties.candleStyle.borderDownColor": "#ff3b3b",
+              "mainSeriesProperties.candleStyle.wickUpColor":     "#00c805",
+              "mainSeriesProperties.candleStyle.wickDownColor":   "#ff3b3b",
+              "paneProperties.background":                        "#050505",
+              "paneProperties.backgroundType":                    "solid",
+              "paneProperties.vertGridProperties.color":          "#111111",
+              "paneProperties.horzGridProperties.color":          "#111111",
+              "scalesProperties.textColor":                       "#666666",
+            }
+          });
+        }
+
+        function openTVFullscreen() {
+          window.open(
+            'https://www.tradingview.com/chart/?symbol=' + encodeURIComponent(_tvCurrentSym) + '&interval=' + _tvCurrentTF,
+            '_blank'
+          );
+        }
+      </script>
+
+      <!-- Buttons overlay -->
+      <div style="position:absolute;bottom:10px;right:10px;z-index:999;display:flex;gap:6px;">
+        <button onclick="openTVFullscreen()"
+          style="background:#0d0d0d;border:1px solid #c5a059;color:#c5a059;padding:5px 12px;border-radius:4px;font-size:0.6rem;cursor:pointer;font-family:monospace;letter-spacing:1px;">
+          ↗ OPEN IN TV
+        </button>
       </div>
     </div>
   </div>
@@ -674,11 +734,39 @@ import { getDatabase, ref, onValue, update, push as fbPush } from "https://www.g
 
 // ── STATE ──
 let db = null, chart = null, candleSeries = null;
+
+// TradingView TF map
+const _tvTFMap = {
+  '1':'1','5':'5','15':'15','30':'30',
+  '60':'60','120':'120','240':'240',
+  '1440':'D','10080':'W','43200':'M'
+};
+
+// TradingView symbol map
+const _tvSymMap = {
+  'XAUUSD':'OANDA:XAUUSD','XAGUSD':'OANDA:XAGUSD',
+  'EURUSD':'OANDA:EURUSD','GBPUSD':'OANDA:GBPUSD',
+  'USDJPY':'OANDA:USDJPY','GBPJPY':'OANDA:GBPJPY',
+  'AUDUSD':'OANDA:AUDUSD','USDCAD':'OANDA:USDCAD',
+  'USDCHF':'OANDA:USDCHF','NAS100':'NASDAQ:NDX',
+  'US30':'DJ:DJI','US500':'SP:SPX',
+  'BTCUSD':'BINANCE:BTCUSDT','ETHUSD':'BINANCE:ETHUSDT',
+  'BNBUSD':'BINANCE:BNBUSDT','SOLUSD':'BINANCE:SOLUSDT',
+  'CRUDE':'NYMEX:CL1!',
+};
+
+function switchTV(sym, tf) {
+  if (typeof initTVWidget === 'function') {
+    const tvSym = _tvSymMap[sym] || sym;
+    const tvTF  = _tvTFMap[tf]   || tf;
+    initTVWidget(tvSym, tvTF);
+  }
+}
 let currentSym = 'XAUUSD', currentTF = '15';
 let orderDir = 'BUY', orderType = 'MARKET';
 let layers = { sig:true, ob:true, fvg:true, liq:true, bos:true, ew:true };
 let sigSeriesList = [];
-let lastPrice = 3280;
+let lastPrice = 3280;  // Updated — real price fetched on load
 let lastSignals = [];
 let algoConfig = JSON.parse(localStorage.getItem('isi_algo_config') || '{}');
 
@@ -708,306 +796,6 @@ try {
 // ══════════════════════════
 // CHART
 // ══════════════════════════
-// ═══════════════════════════════════════════════════════════════════
-// DUAL CHART SYSTEM
-// Mode 'lc' = LightweightCharts with ICT/SMC overlays + real data
-// Mode 'tv' = TradingView Professional (all TV tools)
-// ═══════════════════════════════════════════════════════════════════
-let _chartMode = 'lc';
-let _tvWidget  = null;
-let _tvStyle   = '1';
-
-// ── Symbol maps ──
-const TV_SYM = {
-  'XAUUSD':'OANDA:XAUUSD','XAGUSD':'OANDA:XAGUSD',
-  'EURUSD':'OANDA:EURUSD','GBPUSD':'OANDA:GBPUSD','USDJPY':'OANDA:USDJPY',
-  'GBPJPY':'OANDA:GBPJPY','AUDUSD':'OANDA:AUDUSD','USDCAD':'OANDA:USDCAD','USDCHF':'OANDA:USDCHF',
-  'NAS100':'CAPITALCOM:US100','US30':'CAPITALCOM:US30','US500':'CAPITALCOM:US500',
-  'BTCUSD':'BITSTAMP:BTCUSD','ETHUSD':'BITSTAMP:ETHUSD',
-  'CRUDE':'TVC:USOIL','BRENT':'TVC:UKOIL',
-};
-const TV_INT = {'1':'1','5':'5','15':'15','30':'30','60':'60','120':'120','240':'240','1440':'D','10080':'W','43200':'M'};
-const STOOQ  = {'XAUUSD':'xauusd','XAGUSD':'xagusd','EURUSD':'eurusd','GBPUSD':'gbpusd','USDJPY':'usdjpy','GBPJPY':'gbpjpy','AUDUSD':'audusd','USDCAD':'usdcad','USDCHF':'usdchf','NAS100':'^ndx','US30':'^dji','US500':'^spx','CRUDE':'cl.f','BRENT':'lco.f'};
-const BNSYM  = {'BTCUSD':'BTCUSDT','ETHUSD':'ETHUSDT','XRPUSD':'XRPUSDT'};
-const BN_INT = {'1':'1m','5':'5m','15':'15m','30':'30m','60':'1h','120':'2h','240':'4h','1440':'1d','10080':'1w','43200':'1M'};
-const ST_INT = {'1':'5','5':'5','15':'15','30':'30','60':'60','120':'60','240':'60','1440':'d','10080':'w','43200':'m'};
-
-// ════════════════════════════════════════════════════════════
-// DATA ENGINE v3 — Yahoo Finance primary, Binance for crypto
-// No intraday-from-daily simulation (causes squeeze bug)
-// ════════════════════════════════════════════════════════════
-
-// Yahoo Finance symbol map
-const YF_SYM = {
-  'XAUUSD':'GC=F','XAGUSD':'SI=F',
-  'EURUSD':'EURUSD=X','GBPUSD':'GBPUSD=X','USDJPY':'USDJPY=X',
-  'GBPJPY':'GBPJPY=X','AUDUSD':'AUDUSD=X','USDCAD':'USDCAD=X','USDCHF':'USDCHF=X',
-  'NAS100':'^NDX','US30':'^DJI','US500':'^GSPC',
-  'CRUDE':'CL=F','BRENT':'BZ=F',
-};
-// Yahoo Finance timeframe map → {interval, range}
-const YF_TF = {
-  '1':   {interval:'1m',  range:'1d'},
-  '5':   {interval:'5m',  range:'5d'},
-  '15':  {interval:'15m', range:'5d'},
-  '30':  {interval:'30m', range:'5d'},
-  '60':  {interval:'60m', range:'1mo'},
-  '120': {interval:'60m', range:'1mo'},
-  '240': {interval:'1d',  range:'3mo'},
-  '1440':{interval:'1d',  range:'1y'},
-  '10080':{interval:'1wk',range:'2y'},
-  '43200':{interval:'1mo',range:'5y'},
-};
-
-// CORS proxies
-async function _proxy(url, t=10000){
-  const proxies = [
-    `https://corsproxy.io/?${encodeURIComponent(url)}`,
-    `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
-  ];
-  for(const p of proxies){
-    try{
-      const r = await fetch(p, {signal: AbortSignal.timeout(t)});
-      if(r.ok) return r;
-    }catch(e){}
-  }
-  return null;
-}
-
-// ── 1. Yahoo Finance (forex, gold, indices) ──
-async function _fetchYahoo(sym, tf){
-  const ticker = YF_SYM[sym]; if(!ticker) return null;
-  const {interval, range} = YF_TF[tf] || {interval:'15m', range:'5d'};
-  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=${interval}&range=${range}&includePrePost=false`;
-  try{
-    const r = await _proxy(url, 12000);
-    if(!r) return null;
-    const json = await r.json();
-    const result = json?.chart?.result?.[0];
-    if(!result) return null;
-    const ts    = result.timestamp || [];
-    const q     = result.indicators?.quote?.[0] || {};
-    const opens = q.open||[], highs=q.high||[], lows=q.low||[], closes=q.close||[];
-    const dp    = getDp(sym);
-    const data  = [];
-    for(let i=0;i<ts.length;i++){
-      if(!closes[i]||!opens[i]||isNaN(closes[i])) continue;
-      const iv = parseInt(tf)*60;
-      // Snap time to interval boundary
-      const t = Math.floor(ts[i]/iv)*iv;
-      data.push({
-        time:  t,
-        open:  +opens[i].toFixed(dp),
-        high:  +highs[i].toFixed(dp),
-        low:   +lows[i].toFixed(dp),
-        close: +closes[i].toFixed(dp),
-      });
-    }
-    // Deduplicate + sort
-    const seen = new Set();
-    const clean = data.filter(d=>{ if(seen.has(d.time)) return false; seen.add(d.time); return true; });
-    clean.sort((a,b)=>a.time-b.time);
-    if(clean.length > 5){
-      console.log(`✅ Yahoo [${sym} ${tf}]: ${clean.length} bars | last: ${clean[clean.length-1].close}`);
-      return clean;
-    }
-  }catch(e){ console.warn('Yahoo err:', sym, e.message); }
-  return null;
-}
-
-// ── 2. Binance (crypto) ──
-async function _fetchBinance(sym, tf){
-  const s = BNSYM[sym]; if(!s) return null;
-  try{
-    const r = await fetch(
-      `https://api.binance.com/api/v3/klines?symbol=${s}&interval=${BN_INT[tf]||'15m'}&limit=300`,
-      {signal: AbortSignal.timeout(8000)}
-    );
-    if(!r.ok) return null;
-    const j = await r.json();
-    return j.map(k=>({time:Math.floor(k[0]/1000), open:+k[1], high:+k[2], low:+k[3], close:+k[4]}));
-  }catch(e){ return null; }
-}
-
-// ── 3. Correct current base prices (2025-2026) ──
-function _basePrice(sym){
-  if(sym.includes('XAU'))  return 3280;
-  if(sym.includes('XAG'))  return 32.5;
-  if(sym.includes('BTC'))  return 82000;
-  if(sym.includes('ETH'))  return 3800;
-  if(sym.includes('NAS'))  return 19800;
-  if(sym.includes('US30')) return 43200;
-  if(sym.includes('US500'))return 5850;
-  if(sym.includes('GBP')&&sym.includes('JPY')) return 195;
-  if(sym.includes('JPY'))  return 150.5;
-  if(sym.includes('EUR'))  return 1.085;
-  if(sym.includes('GBP'))  return 1.272;
-  if(sym.includes('AUD'))  return 0.635;
-  if(sym.includes('CRUDE'))return 78.5;
-  return 1.0;
-}
-
-// ── 4. Simulation fallback — only if ALL real sources fail ──
-function _simCandles(base, n, iv){
-  const now = Math.floor(Date.now()/1000);
-  const dp  = base>1000 ? 2 : base>100 ? 3 : 5;
-  const vol = base>1000 ? 0.0006 : base>100 ? 0.0008 : 0.0002;
-  const data = []; let p = base;
-  // Gentle trend so chart looks natural
-  const trend = (Math.random()-0.5) * 0.0001;
-  for(let i=n-1; i>=0; i--){
-    const o = p;
-    const c = +(p + (Math.random()-0.49+trend)*p*vol).toFixed(dp);
-    const h = +(Math.max(o,c) + Math.random()*p*vol*0.25).toFixed(dp);
-    const l = +(Math.min(o,c) - Math.random()*p*vol*0.25).toFixed(dp);
-    data.push({time: now - i*iv, open:o, high:h, low:l, close:c});
-    p = c;
-  }
-  return data;
-}
-
-// ── MAIN fetchCandles ──
-async function fetchCandles(sym, tf){
-  // Crypto → Binance first (real-time exact data)
-  if(BNSYM[sym]){
-    const d = await _fetchBinance(sym, tf);
-    if(d && d.length>5) return d;
-  }
-  // Forex / Gold / Indices → Yahoo Finance
-  const yf = await _fetchYahoo(sym, tf);
-  if(yf && yf.length>5) return yf;
-
-  // Fallback: simulation from correct base price
-  const base = _basePrice(sym);
-  console.warn(`⚠ Using simulated data for ${sym} — all APIs failed`);
-  return _simCandles(base, 250, parseInt(tf)*60);
-}
-
-// ── LightweightCharts init ──
-function initChart() {
-  if(typeof LightweightCharts==='undefined'){setTimeout(initChart,500);return;}
-  const wrap=document.getElementById('lcChart');
-  if(!wrap){setTimeout(initChart,200);return;}
-  if(wrap.clientWidth===0){setTimeout(initChart,200);return;}
-  try{
-    const w=wrap.clientWidth,h=wrap.clientHeight||Math.max(300,window.innerHeight-82);
-    chart=LightweightCharts.createChart(wrap,{
-      width:w,height:h,
-      layout:{background:{color:'#ffffff'},textColor:'#131722',fontSize:11,fontFamily:"'Segoe UI',Arial,sans-serif"},
-      grid:{vertLines:{color:'#f0f3fa'},horzLines:{color:'#f0f3fa'}},
-      crosshair:{mode:LightweightCharts.CrosshairMode.Normal,
-        vertLine:{color:'#9598a1',width:1,labelBackgroundColor:'#f0f3fa'},
-        horzLine:{color:'#9598a1',width:1,labelBackgroundColor:'#f0f3fa'}},
-      rightPriceScale:{borderColor:'#e0e3eb',borderVisible:true,visible:true,
-        scaleMargins:{top:0.08,bottom:0.08},autoScale:true,mode:0},
-      timeScale:{borderColor:'#e0e3eb',timeVisible:true,secondsVisible:false,
-        rightOffset:8,barSpacing:7,minBarSpacing:1},
-      handleScale:{mouseWheel:true,pinch:true,axisPressedMouseMove:{time:true,price:true}},
-      handleScroll:{mouseWheel:true,pressedMouseMove:true,horzTouchDrag:true,vertTouchDrag:false},
-    });
-    candleSeries=chart.addCandlestickSeries({
-      upColor:'#26a69a',downColor:'#ef5350',
-      borderUpColor:'#26a69a',borderDownColor:'#ef5350',
-      wickUpColor:'#26a69a',wickDownColor:'#ef5350',
-      priceLineVisible:true,priceLineStyle:2,priceLineColor:'#2962ff',
-    });
-    new ResizeObserver(entries=>{
-      for(const e of entries){const{width,height}=e.contentRect;if(chart&&width>0&&height>0)chart.resize(width,height);}
-    }).observe(wrap);
-    window.addEventListener('resize',()=>{if(chart&&wrap.clientWidth>0)chart.resize(wrap.clientWidth,wrap.clientHeight);});
-    loadCandles();
-  }catch(e){console.error('initChart:',e);}
-}
-
-// ── TradingView widget ──
-function _buildTV(sym,tf,style){
-  const wrap=document.getElementById('tvChartDiv');
-  if(!wrap)return;
-  wrap.innerHTML='';
-  const tvSym=TV_SYM[sym]||('FX:'+sym),tvInt=TV_INT[tf]||'15';
-  function tryCreate(){
-    if(typeof TradingView==='undefined'){setTimeout(tryCreate,300);return;}
-    try{
-      _tvWidget=new TradingView.widget({
-        autosize:true,symbol:tvSym,interval:tvInt,timezone:'Etc/UTC',
-        theme:'light',style:style||'1',locale:'en',toolbar_bg:'#ffffff',
-        enable_publishing:false,hide_top_toolbar:false,hide_side_toolbar:false,
-        allow_symbol_change:true,save_image:true,show_popup_button:true,
-        withdateranges:true,details:true,container_id:'tvChartDiv',
-        overrides:{
-          'paneProperties.background':'#ffffff','paneProperties.backgroundType':'solid',
-          'paneProperties.vertGridProperties.color':'#f0f3fa',
-          'paneProperties.horzGridProperties.color':'#f0f3fa',
-          'scalesProperties.textColor':'#131722',
-          'mainSeriesProperties.candleStyle.upColor':'#26a69a',
-          'mainSeriesProperties.candleStyle.downColor':'#ef5350',
-          'mainSeriesProperties.candleStyle.wickUpColor':'#26a69a',
-          'mainSeriesProperties.candleStyle.wickDownColor':'#ef5350',
-          'mainSeriesProperties.candleStyle.borderUpColor':'#26a69a',
-          'mainSeriesProperties.candleStyle.borderDownColor':'#ef5350',
-        },
-        loading_screen:{backgroundColor:'#ffffff',foregroundColor:'#2962ff'},
-      });
-    }catch(e){
-      wrap.innerHTML=`<iframe src="https://s.tradingview.com/widgetembed/?symbol=${encodeURIComponent(tvSym)}&interval=${tvInt}&theme=light&style=${style||1}&locale=en&toolbar_bg=%23ffffff&hide_side_toolbar=0&allow_symbol_change=1&withdateranges=1&save_image=1" style="width:100%;height:100%;border:none;" allowfullscreen></iframe>`;
-    }
-  }
-  tryCreate();
-}
-
-// ── Chart mode switch ──
-window.switchChart=function(mode){
-  _chartMode=mode;
-  const lc=document.getElementById('lcChart'),tv=document.getElementById('tvChartDiv');
-  const canvas=document.getElementById('drawCanvas');
-  const btnLC=document.getElementById('btnLC'),btnTV=document.getElementById('btnTV');
-  const tvSel=document.getElementById('tvStyleSel');
-  if(mode==='tv'){
-    lc.style.display='none';
-    tv.style.display='block';
-    if(canvas) canvas.style.display='none'; // hide canvas in TV mode — TV handles everything
-    tvSel.style.display='inline-block';
-    btnTV.style.cssText='border-color:#2962ff;color:#2962ff;background:#f0f5ff;font-weight:bold;';
-    btnLC.style.cssText='color:#888;border-color:#1a1a1a;';
-    _buildTV(currentSym,currentTF,_tvStyle);
-    toast('📈 TradingView — Real chart. Switch to 📊 ICT for overlays');
-  }else{
-    lc.style.display='block';
-    tv.style.display='none';
-    if(canvas) canvas.style.display='block';
-    tvSel.style.display='none';
-    btnLC.style.cssText='border-color:#c5a059;color:#c5a059;background:#fff8ee;font-weight:bold;';
-    btnTV.style.cssText='color:#2962ff;border-color:#1a1a1a;';
-    loadCandles();
-    toast('📊 ICT Mode — OB · FVG · LIQ · BOS · EW overlays active');
-  }
-};
-
-
-window.applyTVStyle=function(s){_tvStyle=s;_buildTV(currentSym,currentTF,s);};
-window.toggleFullscreen=function(){
-  if(!document.fullscreenElement)document.documentElement.requestFullscreen().catch(()=>{});
-  else document.exitFullscreen();
-};
-document.addEventListener('fullscreenchange',()=>{
-  setTimeout(()=>{if(chart){const w=document.getElementById('lcChart');if(w&&w.clientWidth>0)chart.resize(w.clientWidth,w.clientHeight);}},150);
-});
-
-window.changeTF=function(btn,tf){
-  currentTF=tf;
-  document.querySelectorAll('.tf-btn').forEach(b=>b.classList.remove('on'));
-  btn.classList.add('on');
-  if(_chartMode==='tv')_buildTV(currentSym,tf,_tvStyle);
-  else loadCandles();
-};
-window.changeSymbol=function(sym){
-  currentSym=sym;
-  const o=document.getElementById('oSym');if(o)o.value=sym;
-  if(_chartMode==='tv')_buildTV(sym,currentTF,_tvStyle);
-  else{loadCandles();redrawSigLines();}
-};
-
-
 
 function getDp(sym) {
   if (sym.includes('JPY')) return 3;
@@ -1016,84 +804,38 @@ function getDp(sym) {
   return 5;
 }
 
-let _tickInterval = null;
+// Fetch OHLCV from Yahoo Finance
 
-async function loadCandles() {
-  if (_tickInterval) { clearInterval(_tickInterval); _tickInterval = null; }
-  if (!candleSeries || !chart) { setTimeout(loadCandles, 400); return; }
-
-  const tfLabel = {'43200':'MN','10080':'W1','1440':'D1','240':'H4','120':'H2','60':'H1','30':'M30'}[currentTF]||'M'+currentTF;
-  document.getElementById('livePrice').textContent = '⏳';
-  document.getElementById('symBadge').textContent = currentSym + ' · ' + tfLabel;
-
-  const data = await fetchCandles(currentSym, currentTF);
-
-  if (!data || data.length === 0) {
-    document.getElementById('livePrice').textContent = 'ERR';
-    return;
-  }
-
-  // Validate: all prices must be in realistic range
-  const lastBar = data[data.length-1];
-  const prevBar = data[data.length-2];
-
-  candleSeries.setData(data);
-  chart.timeScale().fitContent();
-
-  lastPrice = lastBar.close;
-  const chg = prevBar ? lastBar.close - prevBar.close : 0;
-  updatePrice(lastPrice, chg);
-  console.log(`[${currentSym} ${currentTF}] Last: ${lastPrice} | Bars: ${data.length}`);
-
-  // ICT/SMC Analysis — only in ICT mode
-  clearICTLayers();
-  if (_chartMode === 'lc') {
-    setTimeout(() => runICTAnalysis(data), 400);
-  }
-
-  // Live tick simulation — very subtle price movement on last candle
-  const vol = lastPrice > 1000 ? 0.00010 : lastPrice > 100 ? 0.00012 : 0.00005;
-  const iv  = parseInt(currentTF) * 60;
-  _tickInterval = setInterval(() => {
-    if (!candleSeries || !chart) return;
-    const chg = (Math.random()-0.495) * lastPrice * vol;
-    const np  = +(lastPrice + chg).toFixed(getDp(currentSym));
-    const now = Math.floor(Date.now()/1000);
-    try {
-      candleSeries.update({
-        time:  Math.floor(now/iv)*iv,
-        open:  lastPrice,
-        high:  Math.max(lastPrice, np) + lastPrice*vol*0.08,
-        low:   Math.min(lastPrice, np) - lastPrice*vol*0.08,
-        close: np,
-      });
-    } catch(e) {}
-    updatePrice(np, chg);
-    lastPrice = np;
-  }, 2500);
+async function fetchFallbackPrice(sym) {
+  // Try to get just the last price from Yahoo
+  const ticker = YF_SYM[sym] || (sym + '=X');
+  try {
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1m&range=1d`;
+    const proxy = `https://corsproxy.io/?${encodeURIComponent(url)}`;
+    const res  = await fetch(proxy, { signal: AbortSignal.timeout(5000) });
+    const json = await res.json();
+    const last = json?.chart?.result?.[0]?.meta?.regularMarketPrice;
+    if (last && last > 0) return last;
+  } catch(e) {}
+  // Hard fallback prices
+  if (sym.includes('XAU'))  return 3280;
+  if (sym.includes('XAG'))  return 32.5;
+  if (sym.includes('JPY'))  return 149.5;
+  if (sym.includes('NAS'))  return 19800;
+  if (sym.includes('US30')) return 43200;
+  if (sym.includes('US500'))return 5850;
+  if (sym.includes('BTC'))  return 82000;
+  if (sym.includes('ETH'))  return 3800;
+  if (sym.includes('CRUDE'))return 78.5;
+  if (sym.includes('EUR'))  return 1.0850;
+  if (sym.includes('GBP'))  return 1.2720;
+  return 1.0;
 }
 
-function updatePrice(price, chg) {
-  const dp = getDp(currentSym);
-  document.getElementById('livePrice').textContent = price.toFixed(dp);
-  const cel = document.getElementById('livePriceChg');
-  cel.textContent = (chg>=0?'▲ +':'▼ ')+Math.abs(chg).toFixed(dp);
-  cel.style.color = chg>=0?'#00c805':'#ff3b3b';
-}
 
-window.changeSymbol = function(sym) {
-  currentSym = sym;
-  document.getElementById('oSym').value = sym;
-  loadCandles();
-  redrawSigLines();
-};
 
-window.changeTF = function(btn, tf) {
-  currentTF = tf;
-  document.querySelectorAll('.tf-btn').forEach(b => b.classList.remove('on'));
-  btn.classList.add('on');
-  loadCandles();
-};
+
+
 
 // ══════════════════════════
 // SIGNAL LINES ON CHART
@@ -1140,14 +882,9 @@ window.toggleLayer = function(name) {
   if (name === 'sig') {
     if (layers.sig) redrawSigLines(); else clearSigLines();
   } else if (['ob','fvg','liq','bos','ew'].includes(name) && _ictData) {
-    clearICTLayers();
-    setTimeout(() => {
-      if (layers.ob)  drawOrderBlocks(_ictData);
-      if (layers.fvg) drawFVGs(_ictData);
-      if (layers.liq) drawLiquidityLevels(_ictData);
-      if (layers.bos) drawBOSCHOCH(_ictData);
-      if (layers.ew)  drawElliottWave(_ictData);
-    }, 50);
+    // Re-run ICT analysis respecting current layer toggles
+    
+    
   }
 };
 
@@ -1263,7 +1000,7 @@ window.chartSig = function(safeJson) {
     const sig = JSON.parse(decodeURIComponent(safeJson));
     currentSym = sig.symbol||currentSym;
     document.getElementById('symSelect').value = currentSym;
-    loadCandles();
+    switchTV(currentSym, currentTF);
     drawSigOnChart(sig);
     toast(`📍 ${sig.symbol} chart pe load kiya`);
   } catch(e) {}
@@ -1311,7 +1048,7 @@ window.setOType = function(t) {
 window.oSymChange = function() {
   currentSym = document.getElementById('oSym').value;
   document.getElementById('symSelect').value = currentSym;
-  loadCandles();
+  switchTV(currentSym, currentTF);
 };
 
 window.calcRR = function() {
@@ -1919,406 +1656,6 @@ window.onNodeSelect = function(silent) {
 
 
 // ══════════════════════════════════════════════════════════════════
-// ICT / SMC ANALYSIS ENGINE
-// Order Blocks · FVG · Liquidity · BOS/CHoCH · Elliott Wave
-// ══════════════════════════════════════════════════════════════════
-
-let _ictData = null;
-let _ictSeries = { ob_rects:[], fvg_lines:[], liq_lines:[], bos_lines:[], ew_lines:[] };
-
-// ── Run full ICT analysis on current candle data ──
-function runICTAnalysis(candles) {
-  if (!candles || candles.length < 20) return;
-  if (!chart || _chartMode !== 'lc') return;
-  _ictData = candles;
-  clearICTLayers();
-  if (layers.ob)  drawOrderBlocks(candles);
-  if (layers.fvg) drawFVGs(candles);
-  if (layers.liq) drawLiquidityLevels(candles);
-  if (layers.bos) drawBOSCHOCH(candles);
-  if (layers.ew)  drawElliottWave(candles);
-}
-
-// ── ORDER BLOCKS ──
-// Bullish OB: last bearish candle before a strong bullish move
-// Bearish OB: last bullish candle before a strong bearish move
-function drawOrderBlocks(candles) {
-  if (!chart) return;
-  (_ictSeries.ob_rects || []).forEach(s => { try { chart.removeSeries(s); } catch(e){} });
-  _ictSeries.ob_rects = [];
-
-  const n = candles.length;
-  const atr = calcATR(candles, n-1, 14);
-  const bullOBs = [], bearOBs = [];
-
-  for (let i = 5; i < n - 5; i++) {
-    const c0 = candles[i];
-    const bodySize = Math.abs(c0.close - c0.open);
-    // Look at next 3 candles for a strong impulse move
-    const impulse3 = candles[i+3].close - candles[i+1].open;
-    const highestNext = Math.max(...candles.slice(i+1,i+4).map(c=>c.high));
-    const lowestNext  = Math.min(...candles.slice(i+1,i+4).map(c=>c.low));
-
-    if (c0.close < c0.open && impulse3 > atr * 1.0 && bodySize > atr * 0.3) {
-      const tooClose = bullOBs.some(ob => Math.abs(ob.price - c0.low) < atr * 0.5);
-      if (!tooClose) bullOBs.push({ i, price: c0.low, high: c0.high, low: c0.low, time: c0.time });
-    }
-    if (c0.close > c0.open && impulse3 < -atr * 1.0 && bodySize > atr * 0.3) {
-      const tooClose = bearOBs.some(ob => Math.abs(ob.price - c0.high) < atr * 0.5);
-      if (!tooClose) bearOBs.push({ i, price: c0.high, high: c0.high, low: c0.low, time: c0.time });
-    }
-  }
-
-  const drawOB = (list, colTop, colBot, label) => {
-    list.slice(-4).forEach(ob => {
-      const extT = candles[Math.min(ob.i+20, n-1)].time;
-      const dp   = getDp(currentSym);
-      const hiS  = chart.addLineSeries({ color:colTop, lineWidth:2, lineStyle:0, priceLineVisible:false, lastValueVisible:true, title:label+' '+ob.high.toFixed(dp) });
-      hiS.setData([{time:ob.time,value:ob.high},{time:extT,value:ob.high}]);
-      const loS  = chart.addLineSeries({ color:colBot, lineWidth:1, lineStyle:2, priceLineVisible:false, lastValueVisible:false });
-      loS.setData([{time:ob.time,value:ob.low},{time:extT,value:ob.low}]);
-      _ictSeries.ob_rects.push(hiS, loS);
-    });
-  };
-  drawOB(bullOBs, 'rgba(38,166,154,1)',  'rgba(38,166,154,0.6)', '🟩OB');
-  drawOB(bearOBs, 'rgba(239,83,80,1)',   'rgba(239,83,80,0.6)',  '🟥OB');
-}
-
-// ── FAIR VALUE GAPS (FVG / Imbalance) ──
-// Bullish FVG: candle[i-1].high < candle[i+1].low (gap between)
-// Bearish FVG: candle[i-1].low > candle[i+1].high
-function drawFVGs(candles) {
-  if (!chart) return;
-  (_ictSeries.fvg_lines || []).forEach(s => { try { chart.removeSeries(s); } catch(e){} });
-  _ictSeries.fvg_lines = [];
-
-  const n = candles.length;
-  const atr = calcATR(candles, n-1, 14);
-  const fvgMin = atr * 0.2;  // 0.2 ATR minimum gap
-  const bullFVGs = [], bearFVGs = [];
-
-  for (let i = 1; i < n - 1; i++) {
-    const prev = candles[i-1], next = candles[i+1];
-    const gap = next.low - prev.high;
-    const bearGap = prev.low - next.high;
-
-    if (gap > fvgMin) bullFVGs.push({ i, top: next.low, bot: prev.high, time: candles[i].time });
-    if (bearGap > fvgMin) bearFVGs.push({ i, top: prev.low, bot: next.high, time: candles[i].time });
-  }
-
-  const draw = (list, color, max) => list.slice(-max).forEach(fvg => {
-    const extT = candles[Math.min(fvg.i+30, n-1)].time;
-    const top  = chart.addLineSeries({ color, lineWidth:1, lineStyle:1, priceLineVisible:false, lastValueVisible:true, title:'FVG' });
-    top.setData([{time:fvg.time,value:fvg.top},{time:extT,value:fvg.top}]);
-    const bot  = chart.addLineSeries({ color, lineWidth:1, lineStyle:1, priceLineVisible:false, lastValueVisible:false });
-    bot.setData([{time:fvg.time,value:fvg.bot},{time:extT,value:fvg.bot}]);
-    _ictSeries.fvg_lines.push(top, bot);
-  });
-
-  draw(bullFVGs, 'rgba(74,158,255,0.7)', 5);
-  draw(bearFVGs, 'rgba(255,139,0,0.7)', 5);
-}
-
-// ── LIQUIDITY LEVELS ──
-// Equal highs/lows = stop clusters. Swing highs/lows = liquidity pools
-function drawLiquidityLevels(candles) {
-  if (!chart) return;
-  (_ictSeries.liq_lines || []).forEach(s => { try { chart.removeSeries(s); } catch(e){} });
-  _ictSeries.liq_lines = [];
-
-  const n = candles.length;
-  const lookback = Math.min(50, n - 1);
-  const atr = calcATR(candles, n-1, 14);
-  const tolerance = atr * 0.08;
-
-  // Find swing highs/lows
-  const swingHighs = [], swingLows = [];
-  for (let i = 3; i < n - 3; i++) {
-    const h = candles[i].high;
-    const l = candles[i].low;
-    // Swing high: higher than 3 candles on each side
-    if (h > candles[i-1].high && h > candles[i-2].high && h > candles[i+1].high && h > candles[i+2].high)
-      swingHighs.push({ time: candles[i].time, price: h, idx: i });
-    if (l < candles[i-1].low && l < candles[i-2].low && l < candles[i+1].low && l < candles[i+2].low)
-      swingLows.push({ time: candles[i].time, price: l, idx: i });
-  }
-
-  swingHighs.slice(-4).forEach(sh => {
-    const ls = chart.addLineSeries({
-      color: 'rgba(255,120,0,0.85)', lineWidth:1, lineStyle:3,
-      priceLineVisible:false, lastValueVisible:true, title:'💧SSL',
-    });
-    ls.setData([{time:sh.time,value:sh.price},{time:candles[n-1].time,value:sh.price}]);
-    _ictSeries.liq_lines.push(ls);
-  });
-  swingLows.slice(-4).forEach(sl => {
-    const ls = chart.addLineSeries({
-      color: 'rgba(197,160,89,0.85)', lineWidth:1, lineStyle:3,
-      priceLineVisible:false, lastValueVisible:true, title:'💧BSL',
-    });
-    ls.setData([{time:sl.time,value:sl.price},{time:candles[n-1].time,value:sl.price}]);
-    _ictSeries.liq_lines.push(ls);
-  });
-}
-
-// ── BREAK OF STRUCTURE + CHoCH ──
-// BOS: price breaks previous swing high/low in trend direction
-// CHoCH: price breaks previous swing in OPPOSITE direction = potential reversal
-function drawBOSCHOCH(candles) {
-  if (!chart) return;
-  (_ictSeries.bos_lines || []).forEach(s => { try { chart.removeSeries(s); } catch(e){} });
-  _ictSeries.bos_lines = [];
-
-  const n = candles.length;
-  let lastSwingHigh = null, lastSwingLow = null;
-  let trend = 'bull';  // initial
-  const bosLabels = [];
-  const chochLabels = [];
-
-  for (let i = 3; i < n - 2; i++) {
-    const c = candles[i];
-    const isSwingHigh = c.high > candles[i-1].high && c.high > candles[i-2].high &&
-                        c.high > candles[i+1].high && c.high > candles[i+2].high;
-    const isSwingLow  = c.low < candles[i-1].low && c.low < candles[i-2].low &&
-                        c.low < candles[i+1].low && c.low < candles[i+2].low;
-
-    if (isSwingHigh) {
-      if (lastSwingHigh !== null) {
-        if (c.high > lastSwingHigh.price) {
-          // BOS up
-          bosLabels.push({ time: c.time, price: c.high, type: 'BOS↑', color: '#00ff88' });
-        } else if (trend === 'bull') {
-          // CHoCH — bearish shift
-          chochLabels.push({ time: c.time, price: c.high, type: 'CHoCH↓', color: '#ff6b6b' });
-          trend = 'bear';
-        }
-      }
-      lastSwingHigh = { time: c.time, price: c.high, idx: i };
-    }
-    if (isSwingLow) {
-      if (lastSwingLow !== null) {
-        if (c.low < lastSwingLow.price) {
-          // BOS down
-          bosLabels.push({ time: c.time, price: c.low, type: 'BOS↓', color: '#ff6b6b' });
-        } else if (trend === 'bear') {
-          // CHoCH — bullish shift
-          chochLabels.push({ time: c.time, price: c.low, type: 'CHoCH↑', color: '#00ff88' });
-          trend = 'bull';
-        }
-      }
-      lastSwingLow = { time: c.time, price: c.low, idx: i };
-    }
-  }
-
-  const allStructure = [...bosLabels.slice(-3), ...chochLabels.slice(-2)];
-  allStructure.forEach(lbl => {
-    const isBOS = lbl.type.startsWith('BOS');
-    const ls = chart.addLineSeries({
-      color: lbl.color,
-      lineWidth: isBOS ? 2 : 1,
-      lineStyle: isBOS ? 0 : 2,
-      priceLineVisible: false,
-      lastValueVisible: true,
-      title: lbl.type,
-    });
-    const endT = candles[n-1].time;
-    ls.setData([{ time: lbl.time, value: lbl.price }, { time: endT, value: lbl.price }]);
-    // Add marker at BOS point
-    ls.setMarkers([{
-      time: lbl.time,
-      position: lbl.type.includes('↑') ? 'belowBar' : 'aboveBar',
-      color: lbl.color,
-      shape: lbl.type.includes('↑') ? 'arrowUp' : 'arrowDown',
-      text: lbl.type,
-      size: 1,
-    }]);
-    _ictSeries.bos_lines.push(ls);
-  });
-
-  // Update badge
-  const last = [...bosLabels, ...chochLabels].sort((a,b) => a.time - b.time).slice(-1)[0];
-  const badge = document.getElementById('bosBadge');
-  if (badge && last) {
-    badge.style.display = 'block';
-    badge.style.color = last.color;
-    badge.textContent = 'STRUCTURE: ' + last.type;
-  }
-}
-
-// ── ELLIOTT WAVE DETECTION ──
-// Simplified 5-wave impulse detection using swing pivots
-// Wave 1-5 up or down, then ABC correction
-function drawElliottWave(candles) {
-  if (!chart) return;
-  (_ictSeries.ew_lines || []).forEach(s => { try { chart.removeSeries(s); } catch(e){} });
-  _ictSeries.ew_lines = [];
-
-  const n = candles.length;
-  const atr = calcATR(candles, n-1, 14);
-
-  // Find significant pivots (swing highs and lows alternating)
-  const pivots = findPivots(candles, 5);
-
-  if (pivots.length < 6) return;
-
-  // Try to fit Elliott 5-wave: need at least 6 pivots (5 waves = 6 points)
-  // Look at last 8-10 pivots
-  const recent = pivots.slice(-10);
-  const waves = fitElliottWave(recent, candles, atr);
-
-  if (!waves || waves.length < 6) return;
-
-  // Draw wave zigzag as ONE connected line series
-  const wColor = 'rgba(180,80,220,0.9)';
-  const wLabels = ['0','①','②','③','④','⑤'];
-  const wLabelsFull = ['W0','W1','W2','W3','W4','W5'];
-
-  // Single zigzag line through all wave points
-  const zigzagData = waves.map(w => ({ time: w.time, value: w.price }));
-  // Remove duplicates
-  const seen = new Set();
-  const cleanZigzag = zigzagData.filter(d => {
-    if (seen.has(d.time)) return false;
-    seen.add(d.time); return true;
-  });
-
-  if (cleanZigzag.length >= 2) {
-    const ls = chart.addLineSeries({
-      color: wColor, lineWidth: 2, lineStyle: 0,
-      priceLineVisible: false, lastValueVisible: false,
-    });
-    ls.setData(cleanZigzag);
-    _ictSeries.ew_lines.push(ls);
-  }
-
-  waves.forEach((w, i) => {
-    if (i >= wLabels.length) return;
-    const isHigh = w.type === 'H';
-    const ms = chart.addLineSeries({
-      color: wColor, lineWidth: 0,
-      priceLineVisible: false,
-      lastValueVisible: true, title: wLabels[i],
-    });
-    ms.setData([{ time: w.time, value: w.price }]);
-    ms.setMarkers([{
-      time: w.time,
-      position: isHigh ? 'aboveBar' : 'belowBar',
-      color: wColor, shape: 'circle',
-      text: wLabels[i], size: 1,
-    }]);
-    _ictSeries.ew_lines.push(ms);
-  });
-
-  // Update badge
-  const badge = document.getElementById('ewBadge');
-  if (badge && waves.length >= 2) {
-    const isUp = waves[waves.length-1].price > waves[0].price;
-    badge.style.display = 'block';
-    badge.style.color = isUp ? '#00c805' : '#ff3b3b';
-    badge.textContent = `EW: Wave ${waves.length-1} ${isUp ? '↑' : '↓'} (${waves.length-1}/5)`;
-  }
-}
-
-// Find swing pivots (alternating highs and lows)
-function findPivots(candles, lookback) {
-  const pivots = [];
-  const n = candles.length;
-  let lastType = null;
-
-  for (let i = lookback; i < n - lookback; i++) {
-    const c = candles[i];
-    let isHigh = true, isLow = true;
-    for (let j = i - lookback; j <= i + lookback; j++) {
-      if (j === i) continue;
-      if (candles[j].high >= c.high) isHigh = false;
-      if (candles[j].low  <= c.low)  isLow  = false;
-    }
-    if (isHigh && lastType !== 'H') {
-      pivots.push({ time: c.time, price: c.high, type: 'H', idx: i });
-      lastType = 'H';
-    } else if (isLow && lastType !== 'L') {
-      pivots.push({ time: c.time, price: c.low, type: 'L', idx: i });
-      lastType = 'L';
-    }
-  }
-  return pivots;
-}
-
-// Attempt to fit Elliott 5-wave impulse to recent pivots
-function fitElliottWave(pivots, candles, atr) {
-  if (pivots.length < 6) return null;
-  // Try bullish 5-wave: L H L H L H (low-high-low-high-low-high)
-  // Try bearish 5-wave: H L H L H L
-  const last6 = pivots.slice(-6);
-
-  const isBullish = last6[0].type === 'L' && last6[1].type === 'H' &&
-                    last6[2].type === 'L' && last6[3].type === 'H' &&
-                    last6[4].type === 'L' && last6[5].type === 'H';
-
-  const isBearish = last6[0].type === 'H' && last6[1].type === 'L' &&
-                    last6[2].type === 'H' && last6[3].type === 'L' &&
-                    last6[4].type === 'H' && last6[5].type === 'L';
-
-  if (!isBullish && !isBearish) {
-    // Try 4-wave partial
-    const last5 = pivots.slice(-5);
-    const part4 = (last5[0].type === 'L' && last5[1].type === 'H' && last5[2].type === 'L' && last5[3].type === 'H' && last5[4].type === 'L') ||
-                  (last5[0].type === 'H' && last5[1].type === 'L' && last5[2].type === 'H' && last5[3].type === 'L' && last5[4].type === 'H');
-    return part4 ? last5 : null;
-  }
-
-  // Validate Elliott rules (basic)
-  if (isBullish) {
-    // Rule: Wave 3 cannot be shortest; Wave 2 doesn't retrace past Wave 1 start
-    const w1 = last6[1].price - last6[0].price;
-    const w3 = last6[3].price - last6[2].price;
-    const w5 = last6[5].price - last6[4].price;
-    if (w3 < 0 || w1 < 0 || w5 < 0) return null;
-    if (last6[2].price < last6[0].price) return null;  // Wave 2 below start
-    if (last6[4].price < last6[2].price) return null;  // Wave 4 below Wave 2
-  }
-  if (isBearish) {
-    const w1 = last6[0].price - last6[1].price;
-    const w3 = last6[2].price - last6[3].price;
-    if (w1 < 0 || w3 < 0) return null;
-    if (last6[2].price > last6[0].price) return null;
-    if (last6[4].price > last6[2].price) return null;
-  }
-
-  return last6;
-}
-
-// ── ATR calculation ──
-function calcATR(candles, idx, period) {
-  const n = Math.min(period, idx);
-  if (n < 2) return Math.abs(candles[idx].high - candles[idx].low);
-  let sum = 0;
-  for (let i = idx - n + 1; i <= idx; i++) {
-    const prev = candles[i-1] || candles[i];
-    const tr = Math.max(
-      candles[i].high - candles[i].low,
-      Math.abs(candles[i].high - prev.close),
-      Math.abs(candles[i].low  - prev.close)
-    );
-    sum += tr;
-  }
-  return sum / n;
-}
-
-// ── Clear all ICT layers ──
-function clearICTLayers() {
-  if (!chart) return;
-  Object.values(_ictSeries).forEach(arr => {
-    (arr||[]).forEach(s => { try { chart.removeSeries(s); } catch(e){} });
-  });
-  _ictSeries = { ob_rects:[], fvg_lines:[], liq_lines:[], bos_lines:[], ew_lines:[] };
-  ['ewBadge','bosBadge'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.style.display = 'none';
-  });
-}
-
-// ══════════════════════════════════════════════════════════════════
 // DRAWING TOOLS ENGINE
 // Horizontal line · Vertical line · Trendline · Rectangle · Fib · Text
 // ══════════════════════════════════════════════════════════════════
@@ -2336,163 +1673,27 @@ function initDrawCanvas() {
   if (!_drawCanvas) return;
   _drawCtx = _drawCanvas.getContext('2d');
 
+  // Size canvas to match chart
   function resizeCanvas() {
-    const wrap = document.getElementById('lcChart');
-    if (!wrap || wrap.clientWidth === 0) return;
-    _drawCanvas.width  = wrap.clientWidth;
-    _drawCanvas.height = wrap.clientHeight;
-    _drawCanvas.style.width  = wrap.clientWidth  + 'px';
-    _drawCanvas.style.height = wrap.clientHeight + 'px';
-    redrawAllDrawings();
+    const wrap = document.getElementById('tvChart');
+    if (wrap) {
+      _drawCanvas.width  = wrap.clientWidth;
+      _drawCanvas.height = wrap.clientHeight;
+    }
   }
   resizeCanvas();
-  new ResizeObserver(resizeCanvas).observe(document.getElementById('lcChart') || document.body);
-  window.addEventListener('resize', resizeCanvas);
+  new ResizeObserver(resizeCanvas).observe(document.getElementById('tvChart'));
 
   // Mouse events
-  _drawCanvas.addEventListener('mousedown',  onDrawStart);
-  _drawCanvas.addEventListener('mousemove',  onDrawDrag);
-  _drawCanvas.addEventListener('mouseup',    onDrawEnd);
-  _drawCanvas.addEventListener('dblclick',   e => { _drawState='idle'; _drawStart=null; });
-
-  // Touch events (mobile)
-  _drawCanvas.addEventListener('touchstart', e => {
-    e.preventDefault();
-    const t = e.touches[0];
-    const r = _drawCanvas.getBoundingClientRect();
-    onDrawStart({offsetX: t.clientX - r.left, offsetY: t.clientY - r.top, button: 0});
-  }, {passive:false});
-  _drawCanvas.addEventListener('touchmove', e => {
-    e.preventDefault();
-    const t = e.touches[0];
-    const r = _drawCanvas.getBoundingClientRect();
-    onDrawDrag({offsetX: t.clientX - r.left, offsetY: t.clientY - r.top});
-  }, {passive:false});
-  _drawCanvas.addEventListener('touchend', e => {
-    e.preventDefault();
-    if(e.changedTouches[0]){
-      const t = e.changedTouches[0];
-      const r = _drawCanvas.getBoundingClientRect();
-      onDrawEnd({offsetX: t.clientX - r.left, offsetY: t.clientY - r.top});
-    }
-  }, {passive:false});
-
+  _drawCanvas.addEventListener('mousedown', onDrawMouseDown);
+  _drawCanvas.addEventListener('mousemove', onDrawMouseMove);
+  _drawCanvas.addEventListener('mouseup',   onDrawMouseUp);
+  _drawCanvas.addEventListener('dblclick',  onDrawDblClick);
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape') setDrawTool('none');
-    if ((e.key === 'Delete'||e.key === 'Backspace') && _drawTool==='none') clearDrawings();
+    if ((e.key === 'Delete' || e.key === 'Backspace') && _drawTool === 'none') clearDrawings();
   });
 }
-
-// Unified draw start (mouse + touch)
-function onDrawStart(e) {
-  if (_drawTool === 'none') return;
-  const pt = _evPt(e.offsetX, e.offsetY);
-
-  if (_drawTool === 'hline') { commitDrawing({type:'hline',price:pt.price}); return; }
-  if (_drawTool === 'vline') { commitDrawing({type:'vline',time:pt.time,price:pt.price}); return; }
-  if (_drawTool === 'text')  {
-    const txt = prompt('Label text:');
-    if (txt) commitDrawing({type:'text',price:pt.price,time:pt.time,text:txt});
-    return;
-  }
-  // Drag tools: trend, rect, fib
-  if (_drawState === 'idle') {
-    _drawStart = {x:e.offsetX, y:e.offsetY, ...pt};
-    _drawState = 'dragging';
-  }
-}
-
-// Unified drag
-function onDrawDrag(e) {
-  if (_drawState !== 'dragging' || !_drawStart || !_drawCtx) return;
-  const x=e.offsetX, y=e.offsetY;
-  _drawCtx.clearRect(0,0,_drawCanvas.width,_drawCanvas.height);
-  redrawAllDrawings();  // keep existing drawings visible
-  _drawCtx.strokeStyle = '#c5a059';
-  _drawCtx.lineWidth   = 1.5;
-  _drawCtx.setLineDash([5,3]);
-  _drawCtx.beginPath();
-  if (_drawTool==='trend'||_drawTool==='fib') {
-    _drawCtx.moveTo(_drawStart.x, _drawStart.y);
-    _drawCtx.lineTo(x, y);
-  } else if (_drawTool==='rect') {
-    _drawCtx.rect(_drawStart.x, _drawStart.y, x-_drawStart.x, y-_drawStart.y);
-  }
-  _drawCtx.stroke();
-  _drawCtx.setLineDash([]);
-}
-
-// Unified end
-function onDrawEnd(e) {
-  if (_drawState !== 'dragging' || !_drawStart) return;
-  const pt = _evPt(e.offsetX, e.offsetY);
-  const dx = Math.abs(e.offsetX - _drawStart.x), dy = Math.abs(e.offsetY - _drawStart.y);
-  if (dx < 3 && dy < 3) { _drawState='idle'; _drawStart=null; return; } // accidental tap
-  commitDrawing({type:_drawTool, p1:{x:_drawStart.x,y:_drawStart.y,..._drawStart}, p2:{x:e.offsetX,y:e.offsetY,...pt}});
-  _drawState='idle'; _drawStart=null;
-}
-
-function _evPt(x,y){
-  if(chart){
-    try{
-      const price=chart.priceScale('right').coordinateToPrice(y);
-      const time=chart.timeScale().coordinateToLogical(x);
-      if(price!==null&&time!==null)return{x,y,price,time};
-    }catch(e){}
-  }
-  // Fallback: estimate from canvas position
-  const range=lastPrice*0.01;
-  const price=lastPrice+(0.5-y/_drawCanvas.height)*range*2;
-  return{x,y,price,time:Math.floor(Date.now()/1000)-Math.floor(x)};
-}
-
-function redrawAllDrawings(){
-  if(!_drawCtx||!_drawCanvas)return;
-  _drawCtx.clearRect(0,0,_drawCanvas.width,_drawCanvas.height);
-  _drawings.forEach(d=>{
-    _drawCtx.save();
-    _drawCtx.strokeStyle='#c5a059';
-    _drawCtx.fillStyle='rgba(197,160,89,0.08)';
-    _drawCtx.lineWidth=1.5;
-    _drawCtx.setLineDash([]);
-    if(d.type==='hline'&&d.price!==undefined){
-      const y=chart?tryCoord(()=>chart.priceScale('right').priceToCoordinate(d.price)):d.p1?.y;
-      if(y!==null&&y!==undefined){
-        _drawCtx.beginPath();_drawCtx.moveTo(0,y);_drawCtx.lineTo(_drawCanvas.width,y);_drawCtx.stroke();
-        _drawCtx.font='10px monospace';_drawCtx.fillStyle='#c5a059';
-        _drawCtx.fillText(d.price?.toFixed(2)||'',_drawCanvas.width-60,y-3);
-      }
-    } else if((d.type==='trend'||d.type==='fib')&&d.p1&&d.p2){
-      _drawCtx.beginPath();_drawCtx.moveTo(d.p1.x,d.p1.y);_drawCtx.lineTo(d.p2.x,d.p2.y);_drawCtx.stroke();
-      if(d.type==='fib'){
-        // Fib levels
-        const levels=[0,0.236,0.382,0.5,0.618,0.786,1];
-        const colors=['#00c805','#4a9eff','#ff8c00','#ff3b3b','#ff8c00','#4a9eff','#00c805'];
-        levels.forEach((lv,i)=>{
-          const y=d.p1.y+(d.p2.y-d.p1.y)*lv;
-          _drawCtx.strokeStyle=colors[i];_drawCtx.setLineDash([3,3]);
-          _drawCtx.beginPath();_drawCtx.moveTo(0,y);_drawCtx.lineTo(_drawCanvas.width,y);_drawCtx.stroke();
-          _drawCtx.setLineDash([]);
-          _drawCtx.font='10px monospace';_drawCtx.fillStyle=colors[i];
-          _drawCtx.fillText((lv*100).toFixed(1)+'%',5,y-2);
-        });
-      }
-    } else if(d.type==='rect'&&d.p1&&d.p2){
-      _drawCtx.strokeStyle='rgba(197,160,89,0.7)';
-      _drawCtx.beginPath();
-      _drawCtx.rect(d.p1.x,d.p1.y,d.p2.x-d.p1.x,d.p2.y-d.p1.y);
-      _drawCtx.stroke();_drawCtx.fill();
-    } else if(d.type==='vline'&&d.p1){
-      _drawCtx.beginPath();_drawCtx.moveTo(d.p1.x,0);_drawCtx.lineTo(d.p1.x,_drawCanvas.height);_drawCtx.stroke();
-    } else if(d.type==='text'&&d.p1){
-      _drawCtx.font='bold 12px sans-serif';_drawCtx.fillStyle='#c5a059';
-      _drawCtx.fillText(d.text||'',d.p1.x,d.p1.y);
-    }
-    _drawCtx.restore();
-  });
-}
-
-function tryCoord(fn){try{return fn();}catch(e){return null;}}
 
 window.setDrawTool = function(tool) {
   _drawTool = tool;
@@ -2508,7 +1709,6 @@ window.setDrawTool = function(tool) {
   if (_drawCanvas) {
     _drawCanvas.className = 'tool-' + tool;
     _drawCanvas.style.pointerEvents = tool === 'none' ? 'none' : 'all';
-    _drawCanvas.style.zIndex = tool === 'none' ? '20' : '20';
   }
 
   // Update floating label
@@ -2524,14 +1724,14 @@ window.setDrawTool = function(tool) {
 
 window.clearDrawings = function() {
   _drawings = [];
-  _drawSeries.forEach(s => { try { if(chart)chart.removeSeries(s); } catch(e){} });
+  _drawSeries.forEach(s => { try { chart.removeSeries(s); } catch(e){} });
   _drawSeries = [];
   if (_drawCtx && _drawCanvas) _drawCtx.clearRect(0, 0, _drawCanvas.width, _drawCanvas.height);
   toast('🗑 Drawings cleared');
 };
 
 // Convert canvas pixel to chart price+time
-function canvasToPriceTime(x, y) { // legacy — use _evPt() instead
+function canvasToPriceTime(x, y) {
   if (!chart) return null;
   try {
     const price = chart.priceScale('right').coordinateToPrice(y);
@@ -2550,19 +1750,64 @@ function priceTimeToCanvas(price, time) {
   } catch(e) { return null; }
 }
 
-// Drawing events handled by onDrawStart/onDrawDrag/onDrawEnd (above)
+function onDrawMouseDown(e) {
+  if (_drawTool === 'none') return;
+  const pt = canvasToPriceTime(e.offsetX, e.offsetY);
+  if (!pt) return;
+
+  if (_drawTool === 'hline') {
+    commitDrawing({ type:'hline', price: pt.price });
+    return;
+  }
+  if (_drawTool === 'vline') {
+    commitDrawing({ type:'vline', time: pt.time, price: pt.price });
+    return;
+  }
+  if (_drawTool === 'text') {
+    const txt = prompt('Enter label text:');
+    if (txt) commitDrawing({ type:'text', price: pt.price, time: pt.time, text: txt });
+    return;
+  }
+
+  // Two-click tools: trend, rect, fib
+  if (_drawState === 'idle') {
+    _drawStart = pt;
+    _drawState = 'first_point';
+  } else {
+    commitDrawing({ type: _drawTool, p1: _drawStart, p2: pt });
+    _drawState = 'idle';
+    _drawStart = null;
+  }
+}
+
+function onDrawMouseMove(e) {
+  if (_drawState !== 'first_point' || !_drawCtx || !_drawCanvas) return;
+  const pt = canvasToPriceTime(e.offsetX, e.offsetY);
+  if (!pt || !_drawStart) return;
+
+  _drawCtx.clearRect(0, 0, _drawCanvas.width, _drawCanvas.height);
+  _drawCtx.strokeStyle = '#c5a059';
+  _drawCtx.lineWidth = 1;
+  _drawCtx.setLineDash([4, 3]);
+  _drawCtx.beginPath();
+
+  if (_drawTool === 'trend' || _drawTool === 'fib') {
+    _drawCtx.moveTo(_drawStart.x, _drawStart.y);
+    _drawCtx.lineTo(e.offsetX, e.offsetY);
+  } else if (_drawTool === 'rect') {
+    _drawCtx.rect(_drawStart.x, _drawStart.y, e.offsetX - _drawStart.x, e.offsetY - _drawStart.y);
+  }
+  _drawCtx.stroke();
+  _drawCtx.setLineDash([]);
+}
+
+function onDrawMouseUp(e) { /* handled in mousedown */ }
+function onDrawDblClick(e) { _drawState = 'idle'; _drawStart = null; }
 
 function commitDrawing(drawing) {
-  // Store pixel coords for canvas drawing if not already set
-  if (!drawing.p1 && drawing.price !== undefined) {
-    // hline/text — store canvas y
-    const y = chart ? tryCoord(()=>chart.priceScale('right').priceToCoordinate(drawing.price)) : _drawCanvas?.height/2;
-    drawing.p1 = {x:0, y:y||0};
-  }
   _drawings.push(drawing);
-  redrawAllDrawings();
-  // Also add to LC chart as line series for price-anchored accuracy
-  try { renderDrawingOnChart(drawing); } catch(e) {}
+  renderDrawingOnChart(drawing);
+  if (_drawCtx && _drawCanvas) _drawCtx.clearRect(0, 0, _drawCanvas.width, _drawCanvas.height);
 }
 
 function renderDrawingOnChart(d) {
@@ -2645,12 +1890,30 @@ function renderDrawingOnChart(d) {
   } catch(e) { console.warn('Drawing render error:', e); }
 }
 
-// ICT analysis is triggered automatically inside loadCandles after data loads
 
 
 // ── BOOT ──
+function changeSymbol(sym) {
+  currentSym = sym;
+  document.getElementById('oSym') && (document.getElementById('oSym').value = sym);
+  switchTV(currentSym, currentTF);
+}
+
+function changeTF(btn, tf) {
+  document.querySelectorAll('.tf-btn').forEach(b => b.classList.remove('on'));
+  btn.classList.add('on');
+  currentTF = tf;
+  switchTV(currentSym, currentTF);
+}
+
+
 function _boot() {
-  try { initChart(); } catch(e) { console.error('initChart error:', e); }
+  // Init TradingView chart
+  try {
+    const tvSym = _tvSymMap[currentSym] || ('OANDA:' + currentSym);
+    const tvTF  = _tvTFMap[currentTF] || '15';
+    initTVWidget(tvSym, tvTF);
+  } catch(e) {}
   try { setTimeout(initDrawCanvas, 500); } catch(e) {}
   try { loadSaved(); } catch(e) { console.error('loadSaved error:', e); }
   try { loadClusterDropdown(); } catch(e) { console.error('loadClusterDropdown error:', e); }
