@@ -1874,6 +1874,7 @@ function _unlockTerminal() {
     localStorage.setItem('isi_oath_date', new Date().toISOString().split('T')[0]);
     const errEl = document.getElementById('oathPassError');
     if (errEl) errEl.style.display = 'none';
+    if (window._ISISession) window._ISISession.activate();
 }
 
 // ──────────────────────────────────────────────
