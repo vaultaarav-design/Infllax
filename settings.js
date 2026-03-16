@@ -1369,12 +1369,19 @@ window.setTxType = function(type) {
     }
 };
 
-// Stats live listener for transaction section
-onValue(ref(db, 'isi_v6/stats'), snap => {
+// Stats live listener — transaction section + active cluster cards balance refresh
+onValue(ref(db, 'isi_v6/stats'), async snap => {
     liveStatsCache = snap.val() || {};
     populateTxClusters();
+    // Re-render cluster cards so balance/P&L/net updates instantly on every trade
+    if (Object.keys(clusters).length) {
+        const list = document.getElementById('activeList');
+        if (list) {
+            const cards = await Promise.all(Object.entries(clusters).map(([id, c]) => renderClusterCard(id, c)));
+            list.innerHTML = cards.join('');
+        }
+    }
 });
-// Note: clusters onValue is set at line 430 — populateTxClusters also called from there
 
 window.submitTransaction = async function() {
     const cId    = document.getElementById('txClusterSel').value;

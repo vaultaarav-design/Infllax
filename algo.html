@@ -1400,7 +1400,7 @@ function renderAccountCards() {
   }
   grid.innerHTML = "";
   entries.forEach(({ cid, cl, node, nidx, key }) => {
-    const stats   = _liveStats?.[cid]?.[nidx] || {};
+    const stats   = _liveStats?.[cid]?.[String(nidx)] || {};
     const bal     = stats.currentBal ?? node.balance ?? 0;
     const net     = stats.net ?? 0;
     const netCol  = net >= 0 ? "#00c805" : "#ff3b3b";
@@ -1538,7 +1538,7 @@ function populateOrderAccountDropdown() {
   Object.entries(_fbClusters).forEach(([cid, cl]) => {
     (cl.nodes||[]).forEach((node, nidx) => {
       const key = accKey(cid, nidx);
-      const stats = _liveStats?.[cid]?.[nidx] || {};
+      const stats = _liveStats?.[cid]?.[String(nidx)] || {};
       const bal   = stats.currentBal ?? node.balance ?? 0;
       const o = document.createElement("option");
       o.value = key;
@@ -1581,7 +1581,7 @@ function refreshPositionsDisplay() {
   document.getElementById("allAccSummary").style.display = "none";
   const { cid, nidx } = parseAccKey(_posAccId);
   const node  = _fbClusters[cid]?.nodes?.[nidx];
-  const stats = _liveStats?.[cid]?.[nidx] || {};
+  const stats = _liveStats?.[cid]?.[String(nidx)] || {};
   if (!node) return;
   const bal = stats.currentBal ?? node.balance ?? 0;
   const net = stats.net ?? 0;
@@ -1607,7 +1607,7 @@ function renderAllAccSummary() {
   let tBal=0,tNet=0,tTrd=0,tAcc=0;
   Object.entries(_fbClusters).forEach(([cid,cl])=>{
     (cl.nodes||[]).forEach((node,nidx)=>{
-      const s=_liveStats?.[cid]?.[nidx]||{};
+      const s=_liveStats?.[cid]?.[String(nidx)]||{};
       tBal+=s.currentBal??node.balance??0; tNet+=s.net??0; tTrd+=s.trades||0; tAcc++;
     });
   });
