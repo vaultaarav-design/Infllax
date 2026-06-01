@@ -724,12 +724,30 @@ window.deleteScreenshot = async function (nodeIdxStr, fbKey) {
     const cId = t?._clusterId || selectedClusterId;
 
     try {
-        // ── Delete from Firebase Storage if imagePath exists ──
-        if (t?.imagePath) {
-            try { await deleteObject(sRef(storage, t.imagePath)); } catch(e) {}
+        // ── Get storage path — use imagePath if saved, else extract from URL ──
+        let storagePath = t?.imagePath || null;
+
+        // Fallback: extract path from Storage URL if imagePath not saved
+        if (!storagePath && t?.image && t.image.startsWith('https://firebasestorage')) {
+            try {
+                const url = new URL(t.image);
+                // URL format: .../o/PATH?...  — PATH is URL-encoded
+                const match = url.pathname.match(/\/o\/(.+)$/);
+                if (match) storagePath = decodeURIComponent(match[1]);
+            } catch(e) {}
         }
 
-        // ── Remove image URL and path from DB ──
+        // ── Delete from Firebase Storage ──
+        if (storagePath) {
+            try {
+                await deleteObject(sRef(storage, storagePath));
+            } catch(e) {
+                console.warn('Storage delete error:', e.message);
+                // Continue even if storage delete fails (file may already be gone)
+            }
+        }
+
+        // ── Remove image fields from DB ──
         await update(ref(db, `isi_v6/clusters/${cId}/nodes/${nodeIdx}/tradeHistory/${fbKey}`), {
             image:     null,
             imagePath: null
