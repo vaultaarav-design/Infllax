@@ -1,5 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getDatabase, ref, onValue, update, remove, get } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+import { getStorage, ref as sRef, deleteObject } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
 import { aiWeeklyCoach, showAILoading, renderAIResponse } from "./gemini.js";
 
 // ── FIREBASE CONFIG ──
@@ -14,6 +15,7 @@ const firebaseConfig = {
 };
 const fbApp = initializeApp(firebaseConfig);
 const db    = getDatabase(fbApp);
+const storage = getStorage(fbApp);
 
 // ── CONSTANTS ──
 const monthNames = ["January","February","March","April","May","June",
@@ -720,19 +722,24 @@ window.deleteScreenshot = async function (nodeIdxStr, fbKey) {
     const nodeIdx = parseInt(nodeIdxStr);
     const t = allTrades.find(x => x._nodeIdx === nodeIdx && x._fbKey === fbKey);
     const cId = t?._clusterId || selectedClusterId;
-    const path = `isi_v6/clusters/${cId}/nodes/${nodeIdx}/tradeHistory/${fbKey}/image`;
 
     try {
+        // ── Delete from Firebase Storage if imagePath exists ──
+        if (t?.imagePath) {
+            try { await deleteObject(sRef(storage, t.imagePath)); } catch(e) {}
+        }
+
+        // ── Remove image URL and path from DB ──
         await update(ref(db, `isi_v6/clusters/${cId}/nodes/${nodeIdx}/tradeHistory/${fbKey}`), {
-            image: null
+            image:     null,
+            imagePath: null
         });
 
         // Update local state
         const tFound = allTrades.find(x => x._nodeIdx === nodeIdx && x._fbKey === fbKey && x._clusterId === cId);
-        if (tFound) tFound.image = null;
+        if (tFound) { tFound.image = null; tFound.imagePath = null; }
 
-        alert('✅ Screenshot deleted from Firebase successfully!');
-        // Re-render deep dive without screenshot
+        alert('✅ Screenshot deleted from Firebase Storage successfully!');
         viewDeepDive(nodeIdxStr, fbKey);
     } catch (err) {
         alert('Error: ' + err.message);
@@ -740,9 +747,25 @@ window.deleteScreenshot = async function (nodeIdxStr, fbKey) {
 };
 
 // ──────────────────────────────────────────────
+// HELPER — fetch Storage URL → base64 for PDF
+// ──────────────────────────────────────────────
+async function fetchImageAsBase64(url) {
+    try {
+        const res  = await fetch(url);
+        const blob = await res.blob();
+        return await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result);
+            reader.onerror  = reject;
+            reader.readAsDataURL(blob);
+        });
+    } catch(e) { return null; }
+}
+
+// ──────────────────────────────────────────────
 // DOWNLOAD TRADE PDF
 // ──────────────────────────────────────────────
-window.downloadTradePDF = function (nodeIdxStr, fbKey) {
+window.downloadTradePDF = async function (nodeIdxStr, fbKey) {
     const t = allTrades.find(x => x._nodeIdx === parseInt(nodeIdxStr) && x._fbKey === fbKey);
     if (!t) return;
 
@@ -769,10 +792,20 @@ window.downloadTradePDF = function (nodeIdxStr, fbKey) {
     doc.autoTable({ startY: 30, body: rows, theme: 'grid', styles: { fontSize: 9 } });
 
     if (t.image) {
-        doc.addPage();
-        doc.setTextColor(197, 160, 89); doc.setFontSize(14);
-        doc.text('EXECUTION PROOF', 14, 15);
-        doc.addImage(t.image, t.image.includes('png') ? 'PNG' : 'JPEG', 10, 22, 190, 130);
+        try {
+            doc.addPage();
+            doc.setTextColor(197, 160, 89); doc.setFontSize(14);
+            doc.text('EXECUTION PROOF', 14, 15);
+            let imgData = t.image;
+            // If Storage URL (not base64), fetch and convert
+            if (!t.image.startsWith('data:')) {
+                imgData = await fetchImageAsBase64(t.image);
+            }
+            if (imgData) {
+                const fmt = imgData.includes('image/png') ? 'PNG' : 'JPEG';
+                doc.addImage(imgData, fmt, 10, 22, 190, 130);
+            }
+        } catch(e) {}
     }
 
     doc.save(`Journal_${t.date || 'trade'}_${t._nodeTitle || 'node'}.pdf`);

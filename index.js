@@ -2,6 +2,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebas
 import {
     getDatabase, ref, onValue, update, push, remove, get
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+import { getStorage, ref as sRef, uploadBytesResumable, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
 import { aiTradeReview, renderAIResponse } from "./gemini.js";
 
 // ── FIREBASE CONFIG ──
@@ -14,8 +15,9 @@ const firebaseConfig = {
     appId: "1:690730161822:web:81dabfd7b4575e86860d8f",
     databaseURL: "https://trading-terminal-b8006-default-rtdb.firebaseio.com"
 };
-const fbApp = initializeApp(firebaseConfig);
-const db    = getDatabase(fbApp);
+const fbApp  = initializeApp(firebaseConfig);
+const db     = getDatabase(fbApp);
+const storage = getStorage(fbApp);
 
 // ──────────────────────────────────────────────
 // STATE
@@ -1176,13 +1178,29 @@ window.handleSaveAction = async function () {
     const file = document.getElementById('screenshotInput').files[0];
     if (!file) return alert('Please upload a trade screenshot!');
 
-    const reader = new FileReader();
-    reader.onloadend = async function () {
-        const img     = reader.result;
-        const pl      = parseFloat(document.getElementById('netPL').value) || 0;
-        const out     = document.getElementById('outcome').value;
-        const finalPL = (out === 'Stop Loss' ? -Math.abs(pl) : pl);
+    const pl      = parseFloat(document.getElementById('netPL').value) || 0;
+    const out     = document.getElementById('outcome').value;
+    const finalPL = (out === 'Stop Loss' ? -Math.abs(pl) : pl);
 
+    try {
+        // ── STEP 1: Upload screenshot to Firebase Storage ──
+        const ext      = file.name.split('.').pop() || 'jpg';
+        const safeName = `screenshot_${Date.now()}.${ext}`;
+        const storagePath = `screenshots/${selectedClusterId}/${selectedNodeIdx}/${safeName}`;
+        const storageRef  = sRef(storage, storagePath);
+
+        // Show uploading status
+        alert('📤 Screenshot upload ho raha hai...');
+
+        const uploadTask = uploadBytesResumable(storageRef, file);
+        const imageUrl = await new Promise((resolve, reject) => {
+            uploadTask.on('state_changed', null, reject, async () => {
+                const url = await getDownloadURL(uploadTask.snapshot.ref);
+                resolve(url);
+            });
+        });
+
+        // ── STEP 2: Build trade object — only URL, no base64 ──
         const trade = {
             date:      document.getElementById('tradeDate').value,
             nodeTitle: node.title || 'Account ' + (selectedNodeIdx + 1),
@@ -1197,7 +1215,6 @@ window.handleSaveAction = async function () {
             grade:     document.getElementById('gradeSelect').value,
             vios:      [...currentVios],
             liq:       document.getElementById('liqType').value,
-            // Institutional bias data
             htfMs:     permState.htf?.ms    || '',
             htfZone:   permState.htf?.zone  || '',
             ltfMs:     permState.ltf?.ms    || '',
@@ -1213,66 +1230,63 @@ window.handleSaveAction = async function () {
                 document.getElementById('psy5').value,
                 document.getElementById('lesson').value
             ],
-            scale:   Array.from(document.querySelectorAll('.scale:checked')).map(c => c.value),
-            image:   img,
-            savedAt: new Date().toISOString()
+            scale:      Array.from(document.querySelectorAll('.scale:checked')).map(c => c.value),
+            image:      imageUrl,
+            imagePath:  storagePath,
+            savedAt:    new Date().toISOString()
         };
 
-        try {
-            // ── STEP 1: Fetch LIVE stats from dedicated stats path ──
-            const liveSnap  = await get(ref(db, activeStatsPath()));
-            const liveStatsSnap = liveSnap.val() || getNodeStats(selectedClusterId, selectedNodeIdx);
+        // ── STEP 3: Fetch LIVE stats ──
+        const liveSnap      = await get(ref(db, activeStatsPath()));
+        const liveStatsSnap = liveSnap.val() || getNodeStats(selectedClusterId, selectedNodeIdx);
 
-            // Use live currentBal — fallback to node.balance if no trades yet
-            const oldBal  = liveStatsSnap.currentBal ?? node.balance ?? 0;
-            const newBal  = oldBal + finalPL;
-            const newT    = (liveStatsSnap.trades || 0) + 1;
-            const newW    = (liveStatsSnap.wins   || 0) + (out === 'Target' ? 1 : 0);
-            const newNet  = (liveStatsSnap.net    || 0) + finalPL;
-            const newWR   = parseFloat(((newW / newT) * 100).toFixed(1));
+        const oldBal = liveStatsSnap.currentBal ?? node.balance ?? 0;
+        const newBal = oldBal + finalPL;
+        const newT   = (liveStatsSnap.trades || 0) + 1;
+        const newW   = (liveStatsSnap.wins   || 0) + (out === 'Target' ? 1 : 0);
+        const newNet = (liveStatsSnap.net    || 0) + finalPL;
+        const newWR  = parseFloat(((newW / newT) * 100).toFixed(1));
 
-            // ── STEP 2: Save trade history ──
-            await push(ref(db, `${nodeBasePath()}/tradeHistory`), trade);
+        // ── STEP 4: Save trade history to DB (URL only, no base64) ──
+        await push(ref(db, `${nodeBasePath()}/tradeHistory`), trade);
 
-            // ── STEP 3: Write to dedicated stats path (lightweight, instant update) ──
-            await writeStats(selectedClusterId, selectedNodeIdx, {
-                currentBal: newBal,
-                trades:     newT,
-                wins:       newW,
-                winRate:    newWR,
-                net:        newNet
+        // ── STEP 5: Write stats ──
+        await writeStats(selectedClusterId, selectedNodeIdx, {
+            currentBal: newBal,
+            trades:     newT,
+            wins:       newW,
+            winRate:    newWR,
+            net:        newNet
+        });
+
+        // ── STEP 6: Push equity point ──
+        await push(ref(db, `${nodeBasePath()}/equityPoints`), newBal);
+
+        downloadSinglePDF(trade);
+
+        // ── AI TRADE REVIEW (async, non-blocking) ──
+        const aiBox = document.getElementById('aiTradeReviewBox');
+        if (aiBox) {
+            aiBox.style.display = 'block';
+            aiBox.innerHTML = `<div style="display:flex;align-items:center;gap:10px;padding:12px;">
+                <div style="width:16px;height:16px;border:2px solid #c5a059;border-top-color:transparent;
+                    border-radius:50%;animation:aiSpin 0.8s linear infinite;"></div>
+                <span style="color:#666;font-size:0.75rem;">AI tera trade review kar raha hai...</span>
+                <style>@keyframes aiSpin{to{transform:rotate(360deg)}}</style>
+            </div>`;
+            aiTradeReview(trade).then(result => {
+                renderAIResponse('aiTradeReviewBox', result, '🤖 AI Post-Trade Review');
             });
-
-            // ── STEP 4: Push equity point (for chart) ──
-            await push(ref(db, `${nodeBasePath()}/equityPoints`), newBal);
-
-            downloadSinglePDF(trade);
-
-            // ── AI TRADE REVIEW (async, non-blocking) ──
-            const aiBox = document.getElementById('aiTradeReviewBox');
-            if (aiBox) {
-                aiBox.style.display = 'block';
-                aiBox.innerHTML = `<div style="display:flex;align-items:center;gap:10px;padding:12px;">
-                    <div style="width:16px;height:16px;border:2px solid #c5a059;border-top-color:transparent;
-                        border-radius:50%;animation:aiSpin 0.8s linear infinite;"></div>
-                    <span style="color:#666;font-size:0.75rem;">AI tera trade review kar raha hai...</span>
-                    <style>@keyframes aiSpin{to{transform:rotate(360deg)}}</style>
-                </div>`;
-                aiTradeReview(trade).then(result => {
-                    renderAIResponse('aiTradeReviewBox', result, '🤖 AI Post-Trade Review');
-                });
-            }
-
-            alert('✅ Session Locked & Saved!\n\nCapital Updated: ' + node.curr + newBal.toFixed(2));
-            // Don't reload immediately — let AI review show
-            setTimeout(() => location.reload(), 8000);
-
-        } catch (err) {
-            alert('Firebase Error: ' + err.message);
         }
-    };
-    reader.readAsDataURL(file);
+
+        alert('✅ Session Locked & Saved!\n\nCapital Updated: ' + node.curr + newBal.toFixed(2));
+        setTimeout(() => location.reload(), 8000);
+
+    } catch (err) {
+        alert('Firebase Error: ' + err.message);
+    }
 };
+
 
 // ──────────────────────────────────────────────
 // RENDER ALL
@@ -1749,7 +1763,13 @@ window.deleteTrade = async function (idx) {
     const entries = Object.entries(val);
 
     if (entries[idx]) {
-        const [key] = entries[idx];
+        const [key, tradeData] = entries[idx];
+
+        // Delete screenshot from Storage if exists
+        if (tradeData?.imagePath) {
+            try { await deleteObject(sRef(storage, tradeData.imagePath)); } catch(e) {}
+        }
+
         await remove(ref(db, `${nodeBasePath()}/tradeHistory/${key}`));
 
         // Fetch LIVE stats from dedicated path
@@ -1774,9 +1794,27 @@ window.deleteTrade = async function (idx) {
 };
 
 // ──────────────────────────────────────────────
+// HELPER — fetch image URL → base64 for PDF embed
+// ──────────────────────────────────────────────
+async function fetchImageAsBase64(url) {
+    try {
+        const res  = await fetch(url);
+        const blob = await res.blob();
+        return await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result);
+            reader.onerror  = reject;
+            reader.readAsDataURL(blob);
+        });
+    } catch(e) {
+        return null;
+    }
+}
+
+// ──────────────────────────────────────────────
 // PDF EXPORT
 // ──────────────────────────────────────────────
-window.downloadSinglePDF = function (t) {
+window.downloadSinglePDF = async function (t) {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
     doc.setFontSize(14); doc.text('ISI INSTITUTIONAL TRADE REPORT', 14, 18);
@@ -1796,8 +1834,18 @@ window.downloadSinglePDF = function (t) {
         theme: 'grid'
     });
     if (t.image) {
-        doc.addPage(); doc.text('TRADE SCREENSHOT', 14, 14);
-        doc.addImage(t.image, t.image.includes('png') ? 'PNG' : 'JPEG', 15, 20, 180, 130);
+        try {
+            doc.addPage(); doc.text('TRADE SCREENSHOT', 14, 14);
+            let imgData = t.image;
+            // If Storage URL (not base64), fetch and convert
+            if (!t.image.startsWith('data:')) {
+                imgData = await fetchImageAsBase64(t.image);
+            }
+            if (imgData) {
+                const fmt = imgData.includes('image/png') ? 'PNG' : 'JPEG';
+                doc.addImage(imgData, fmt, 15, 20, 180, 130);
+            }
+        } catch(e) {}
     }
     doc.save(`Trade_${t.date}_${t.nodeTitle || 'node'}.pdf`);
 };
