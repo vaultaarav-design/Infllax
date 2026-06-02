@@ -693,7 +693,7 @@ window.viewDeepDive = function (nodeIdxStr, fbKey, clusterId) {
         <div style="margin-top:16px;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
                 <b style="color:var(--gold);font-size:0.82rem;">6. TRADE SCREENSHOT</b>
-                <button class="del-ss-btn" onclick="deleteScreenshot('${nodeIdxStr}','${fbKey}')">🗑 Delete Screenshot</button>
+                <button class="del-ss-btn" onclick="deleteScreenshot('${nodeIdxStr}','${fbKey}','${t._clusterId||selectedClusterId}')">🗑 Delete Screenshot</button>
             </div>
             <img src="${t.image}" class="screenshot-img">
         </div>` : `
@@ -716,12 +716,13 @@ window.allTradesForDate = function (date) {
 // ──────────────────────────────────────────────
 // DELETE SCREENSHOT — from Firebase + update UI
 // ──────────────────────────────────────────────
-window.deleteScreenshot = async function (nodeIdxStr, fbKey) {
+window.deleteScreenshot = async function (nodeIdxStr, fbKey, clusterId) {
     if (!confirm('Delete this screenshot permanently from Firebase?\n\nIt will also disappear in Trade History on index.html.')) return;
 
     const nodeIdx = parseInt(nodeIdxStr);
-    const t = allTrades.find(x => x._nodeIdx === nodeIdx && x._fbKey === fbKey);
-    const cId = t?._clusterId || selectedClusterId;
+    const cId = clusterId || selectedClusterId;
+    const t = allTrades.find(x => x._nodeIdx === nodeIdx && x._fbKey === fbKey && x._clusterId === cId)
+           || allTrades.find(x => x._nodeIdx === nodeIdx && x._fbKey === fbKey);
 
     try {
         // ── Get storage path — use imagePath if saved, else extract from URL ──
